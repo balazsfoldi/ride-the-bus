@@ -1,12 +1,13 @@
 services:
   ride-the-bus:
-    build:
-      context: .
+    image: ghcr.io/balazsfoldi/ride-the-bus:latest
     container_name: ride-the-bus
     restart: unless-stopped
     environment:
       - ROOM_ACCESS_CODE=${ROOM_ACCESS_CODE:-}
       - MAX_PLAYERS=${MAX_PLAYERS:-12}
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     expose:
       - "80"
 
@@ -25,6 +26,14 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: ride-the-bus-watchtower
+    restart: unless-stopped
+    command: --interval ${WATCHTOWER_POLL_INTERVAL:-300} --cleanup --label-enable
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   caddy_data:

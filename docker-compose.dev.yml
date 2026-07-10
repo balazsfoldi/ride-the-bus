@@ -1,0 +1,5 @@
+services:
+  ride-the-bus:
+    build:
+      context: .
+    image: ride-the-bus:local

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, join, normalize, resolve } from 'node:path';
 import type { Card } from '../src/model/cards';
@@ -34,6 +34,7 @@ const clients = new Map<string, Set<ServerResponse>>();
 const roomAccessCode = String(process.env.ROOM_ACCESS_CODE ?? '').trim();
 const maxPlayers = Math.max(1, Number(process.env.MAX_PLAYERS ?? 12));
 const maxNameLength = 24;
+const appVersion = getAppVersion();
 
 const securityHeaders = {
   'x-content-type-options': 'nosniff',
@@ -42,6 +43,20 @@ const securityHeaders = {
   'permissions-policy': 'camera=(), microphone=(), geolocation=()',
   'cross-origin-opener-policy': 'same-origin',
 };
+
+
+function getAppVersion() {
+  if (process.env.APP_VERSION) {
+    return process.env.APP_VERSION;
+  }
+
+  try {
+    const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as { version?: string };
+    return packageJson.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 let version = 0;
 let roomPhase: 'lobby' | 'playing' = 'lobby';
@@ -543,7 +558,7 @@ const server = createServer(async (req, res) => {
 
   try {
     if (req.method === 'GET' && url.pathname === '/api/health') {
-      json(res, 200, { ok: true, roomPhase, players: lobbyPlayers.length, maxPlayers, accessCodeRequired: Boolean(roomAccessCode) });
+      json(res, 200, { ok: true, version: appVersion, roomPhase, players: lobbyPlayers.length, maxPlayers, accessCodeRequired: Boolean(roomAccessCode) });
       return;
     }
 

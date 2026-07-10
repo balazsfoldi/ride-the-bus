@@ -10,9 +10,11 @@ RUN npm run build
 
 FROM node:22-alpine
 
+ARG APP_VERSION=
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=80
+ENV APP_VERSION=${APP_VERSION}
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server-dist ./server-dist

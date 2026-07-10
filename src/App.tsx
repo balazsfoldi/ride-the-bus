@@ -23,6 +23,7 @@ export function App() {
           <p className="eyebrow">Party card game</p>
           <h1>Ride the Bus</h1>
           <p className="menu-copy">Choose local table mode or one-room online multiplayer.</p>
+          <p className="app-version">v{__APP_VERSION__}</p>
         </div>
 
         <div className="mode-grid">

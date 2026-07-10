@@ -71,10 +71,13 @@ Copy `.env.example` to `.env` for Docker deployment or set variables in your hos
 - `ROOM_ACCESS_CODE`: optional shared code required for new joins.
 - `MAX_PLAYERS`: online room size cap, default `12`.
 - `PORT`: app server port, default `80` inside Docker.
+- `WATCHTOWER_POLL_INTERVAL`: auto-update polling interval in seconds, default `300`.
 
 Do not commit `.env` or any private DuckDNS token. DuckDNS token updates should live in your router, cron job, or another private host-level script outside this repository.
 
 ## Docker And DuckDNS
+
+The default Compose file pulls the published image from GitHub Container Registry and runs Watchtower for automatic updates.
 
 1. Point your DuckDNS hostname to the Raspberry Pi public IP.
 2. Forward ports `80` and `443` from the router to the Raspberry Pi.
@@ -82,10 +85,44 @@ Do not commit `.env` or any private DuckDNS token. DuckDNS token updates should 
 4. Run:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-Caddy will request and renew HTTPS certificates automatically for `RIDE_THE_BUS_DOMAIN`.
+Caddy will request and renew HTTPS certificates automatically for `RIDE_THE_BUS_DOMAIN`. Watchtower polls for a newer `ghcr.io/balazsfoldi/ride-the-bus:latest` image and restarts only labeled containers after an update.
+
+For local Docker builds, use the dev override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
+## Releases And Auto Updates
+
+Releases are tag-driven. The app version comes from `package.json`, is shown in the UI, and is returned from `/api/health`.
+
+1. Bump the npm version:
+
+```bash
+npm version patch
+# or: npm version minor / npm version major
+```
+
+2. Push the commit and tag:
+
+```bash
+git push origin main --follow-tags
+```
+
+3. GitHub Actions runs lint/tests, verifies the tag matches `package.json`, builds multi-arch Docker images, and publishes:
+
+```text
+ghcr.io/balazsfoldi/ride-the-bus:vX.Y.Z
+ghcr.io/balazsfoldi/ride-the-bus:latest
+```
+
+4. Any Raspberry Pi running the Compose stack pulls the new `latest` image automatically through Watchtower.
+
+For this to work, GitHub Actions must have package write permissions enabled for the repository. Public GHCR packages can be pulled without logging in on the Raspberry Pi.
 
 ## Public Repo Security Notes
 
