@@ -1,0 +1,17 @@
+node_modules/
+npm-debug.log*
+*.log
+.env
+.env.*
+.git/
+.gitignore
+dist/
+server-dist/
+coverage/
+test-results/
+playwright-report/
+.vite/
+.cache/
+.eslintcache
+.DS_Store
+Thumbs.db

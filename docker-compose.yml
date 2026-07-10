@@ -1,0 +1,31 @@
+services:
+  ride-the-bus:
+    build:
+      context: .
+    container_name: ride-the-bus
+    restart: unless-stopped
+    environment:
+      - ROOM_ACCESS_CODE=${ROOM_ACCESS_CODE:-}
+      - MAX_PLAYERS=${MAX_PLAYERS:-12}
+    expose:
+      - "80"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: ride-the-bus-caddy
+    restart: unless-stopped
+    depends_on:
+      - ride-the-bus
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - RIDE_THE_BUS_DOMAIN=${RIDE_THE_BUS_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

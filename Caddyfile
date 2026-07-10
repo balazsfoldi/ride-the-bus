@@ -1,0 +1,14 @@
+{$RIDE_THE_BUS_DOMAIN} {
+  encode gzip zstd
+
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy no-referrer
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Cross-Origin-Opener-Policy same-origin
+    -Server
+  }
+
+  reverse_proxy ride-the-bus:80
+}
