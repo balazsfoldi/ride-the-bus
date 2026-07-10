@@ -98,29 +98,40 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 ## Releases And Auto Updates
 
-Releases are tag-driven. The app version comes from `package.json`, is shown in the UI, and is returned from `/api/health`.
+The app version comes from `package.json`, is shown in the UI, and is returned from `/api/health`. Release versions must match `package.json` exactly.
 
-1. Bump the npm version:
+### Release From GitHub
 
-```bash
-npm version patch
-# or: npm version minor / npm version major
-```
-
-2. Push the commit and tag:
+1. Bump `package.json` locally or in GitHub before running the release. For example:
 
 ```bash
-git push origin main --follow-tags
+npm version patch --no-git-tag-version
+git add package.json package-lock.json
+git commit -m "chore(release): bump version to 0.1.1"
+git push origin main
 ```
 
-3. GitHub Actions runs lint/tests, verifies the tag matches `package.json`, builds multi-arch Docker images, and publishes:
+2. In GitHub, open **Actions** -> **Release** -> **Run workflow**.
+3. Enter the version, for example `0.1.1` or `v0.1.1`.
+4. Keep **publish_latest** enabled for Raspberry Pi auto-updates.
+
+The workflow runs lint/tests, creates a GitHub Release/tag when needed, builds multi-arch Docker images, and publishes:
 
 ```text
 ghcr.io/balazsfoldi/ride-the-bus:vX.Y.Z
 ghcr.io/balazsfoldi/ride-the-bus:latest
 ```
 
-4. Any Raspberry Pi running the Compose stack pulls the new `latest` image automatically through Watchtower.
+### Release From Git
+
+You can also release by pushing a version tag:
+
+```bash
+npm version patch
+git push origin main --follow-tags
+```
+
+Any Raspberry Pi running the Compose stack pulls the new `latest` image automatically through Watchtower.
 
 For this to work, GitHub Actions must have package write permissions enabled for the repository. Public GHCR packages can be pulled without logging in on the Raspberry Pi.
 

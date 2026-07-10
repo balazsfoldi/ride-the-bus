@@ -1,12 +1,23 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, for example 0.1.1 or v0.1.1. Must match package.json.'
+        required: true
+        type: string
+      publish_latest:
+        description: 'Also publish/update the latest Docker tag.'
+        required: true
+        default: true
+        type: boolean
   push:
     tags:
       - 'v*.*.*'
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -16,6 +27,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve release version
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_VERSION="${{ inputs.version }}"
+            PUBLISH_LATEST="${{ inputs.publish_latest }}"
+          else
+            RAW_VERSION="${GITHUB_REF_NAME}"
+            PUBLISH_LATEST="true"
+          fi
+
+          RELEASE_VERSION="${RAW_VERSION#v}"
+          RELEASE_TAG="v${RELEASE_VERSION}"
+
+          if ! echo "$RELEASE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
+            echo "Invalid release version: $RAW_VERSION"
+            exit 1
+          fi
+
+          {
+            echo "version=$RELEASE_VERSION"
+            echo "tag=$RELEASE_TAG"
+            echo "publish_latest=$PUBLISH_LATEST"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -32,12 +68,11 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Verify package version matches tag
+      - name: Verify package version matches release
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
-            echo "Tag version v$TAG_VERSION does not match package.json version $PACKAGE_VERSION"
+          if [ "${{ steps.release.outputs.version }}" != "$PACKAGE_VERSION" ]; then
+            echo "Release ${{ steps.release.outputs.tag }} does not match package.json version $PACKAGE_VERSION"
             exit 1
           fi
 
@@ -59,12 +94,23 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest
           labels: |
             org.opencontainers.image.title=Ride the Bus
             org.opencontainers.image.description=One-room Ride the Bus web game
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+
+      - name: Resolve Docker tags
+        id: docker_tags
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}"
+          {
+            echo "tags<<EOF"
+            echo "$IMAGE:${{ steps.release.outputs.tag }}"
+            if [ "${{ steps.release.outputs.publish_latest }}" = "true" ]; then
+              echo "$IMAGE:latest"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -72,5 +118,19 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.docker_tags.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ steps.release.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.release.outputs.tag }} already exists."
+            exit 0
+          fi
+
+          gh release create "${{ steps.release.outputs.tag }}" \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.release.outputs.tag }}" \
+            --generate-notes
