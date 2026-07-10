@@ -96,13 +96,25 @@ For local Docker builds, use the dev override:
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
 
-## Releases And Auto Updates
+## CI, Releases And Auto Updates
 
 The app version comes from `package.json`, is shown in the UI, and is returned from `/api/health`. Release versions must match `package.json` exactly.
 
-### Release From GitHub
+### Run Tests
 
-1. Bump `package.json` locally or in GitHub before running the release. For example:
+The **Run Tests** workflow runs on every branch push and can also be started manually from GitHub:
+
+```text
+Actions -> Run Tests -> Run workflow
+```
+
+It runs typecheck, lint, unit/integration/API e2e tests, production build, and audit. The Release workflow calls this same Run Tests workflow before it publishes anything.
+
+### Manual Release From GitHub
+
+Releases are intentionally manual only. Pushing a git tag does not publish a release.
+
+1. Bump `package.json` before running the release. For example:
 
 ```bash
 npm version patch --no-git-tag-version
@@ -112,23 +124,15 @@ git push origin main
 ```
 
 2. In GitHub, open **Actions** -> **Release** -> **Run workflow**.
-3. Enter the version, for example `0.1.1` or `v0.1.1`.
-4. Keep **publish_latest** enabled for Raspberry Pi auto-updates.
+3. Select the branch you want to release from.
+4. Enter the version, for example `0.1.1` or `v0.1.1`.
+5. Keep **publish_latest** enabled for Raspberry Pi auto-updates.
 
-The workflow runs lint/tests, creates a GitHub Release/tag when needed, builds multi-arch Docker images, and publishes:
+The workflow first runs Run Tests. Only after those checks pass, it creates a GitHub Release/tag when needed, builds multi-arch Docker images, and publishes:
 
 ```text
 ghcr.io/balazsfoldi/ride-the-bus:vX.Y.Z
 ghcr.io/balazsfoldi/ride-the-bus:latest
-```
-
-### Release From Git
-
-You can also release by pushing a version tag:
-
-```bash
-npm version patch
-git push origin main --follow-tags
 ```
 
 Any Raspberry Pi running the Compose stack pulls the new `latest` image automatically through Watchtower.
