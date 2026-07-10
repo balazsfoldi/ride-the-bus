@@ -72,6 +72,7 @@ Copy `.env.example` to `.env` for Docker deployment or set variables in your hos
 - `MAX_PLAYERS`: online room size cap, default `12`.
 - `PORT`: app server port, default `80` inside Docker.
 - `WATCHTOWER_POLL_INTERVAL`: auto-update polling interval in seconds, default `300`.
+- `DOCKER_API_VERSION`: Docker Engine API version used by Watchtower, default `1.44`.
 
 Do not commit `.env` or any private DuckDNS token. DuckDNS token updates should live in your router, cron job, or another private host-level script outside this repository.
 

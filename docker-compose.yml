@@ -32,6 +32,8 @@ services:
     container_name: ride-the-bus-watchtower
     restart: unless-stopped
     command: --interval ${WATCHTOWER_POLL_INTERVAL:-300} --cleanup --label-enable
+    environment:
+      - DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.44}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
