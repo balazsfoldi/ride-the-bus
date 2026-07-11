@@ -364,8 +364,8 @@ export function makeGuess(state: GameState, guess: Guess): GameState {
       index === state.activePlayerIndex
         ? {
             ...player,
-            hand: [...player.hand, ...state.activeCards],
-            completedRounds: player.completedRounds + 1,
+            hand: [...state.activeCards],
+            completedRounds: 1,
           }
         : player,
     );
