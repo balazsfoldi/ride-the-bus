@@ -80,14 +80,16 @@ export function OnlineRoom({ onBackToMenu }: OnlineRoomProps) {
               {room.self ? 'Change name' : 'Join'}
             </button>
           </div>
-          <label className="visually-hidden" htmlFor="room-access-code">Room access code</label>
-          <input
-            id="room-access-code"
-            type="password"
-            value={accessCode}
-            onChange={(event) => setAccessCode(event.target.value)}
-            placeholder="Access code if configured"
-          />
+          <label htmlFor="room-access-code">Access Code</label>
+          <div className="field-row">
+            <input
+              id="room-access-code"
+              type="password"
+              value={accessCode}
+              onChange={(event) => setAccessCode(event.target.value)}
+              placeholder="Enter access code if required"
+            />
+          </div>
         </form>
 
         {room.sessionId && room.self ? (
