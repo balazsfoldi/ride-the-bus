@@ -263,8 +263,8 @@ export function isCorrectGuess(cards: Card[], cardIndex: number, guess: Guess): 
     return guess === (inside ? 'inside' : 'outside');
   }
 
-  const previousSuits = cards.slice(0, 3).map((previousCard) => previousCard.suit);
-  const hasSeenSuit = previousSuits.includes(card.suit);
+  const previousSuits = new Set(cards.slice(0, cardIndex).map((previousCard) => previousCard.suit));
+  const hasSeenSuit = previousSuits.has(card.suit);
   return guess === (hasSeenSuit ? 'seen' : 'new');
 }
 
@@ -318,6 +318,11 @@ export function makeGuess(state: GameState, guess: Guess): GameState {
   const activePlayer = getActivePlayer(state);
 
   if (state.phase !== 'ride' || !activePlayer || state.activeCards.length === 0 || state.revealedCount > 3 || state.pendingGiveAway) {
+    return state;
+  }
+
+  const validGuesses = getGuessOptions(state.revealedCount).map((option) => option.guess);
+  if (!validGuesses.includes(guess)) {
     return state;
   }
 
