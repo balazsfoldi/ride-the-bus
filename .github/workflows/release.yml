@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'New release version (current: 0.1.2).'
+        description: 'New release version. Current version: package.json.'
         required: true
-        default: '0.1.2'
         type: string
       publish_latest:
         description: 'Also publish/update the latest Docker tag.'
@@ -31,6 +30,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Show current package version
+        run: echo "::notice title=Current package version::$(node -p "require('./package.json').version")"
+
       - name: Resolve release version
         id: release
         run: |
@@ -50,20 +52,18 @@ jobs:
             echo "publish_latest=$PUBLISH_LATEST"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Update package and workflow version
+      - name: Update package version
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
           npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
-          sed -i -E "s/(description: 'New release version \(current: )[^)]+(\)\.')/\1${RELEASE_VERSION}\2/" .github/workflows/release.yml
-          sed -i -E "/^      version:/,/^      publish_latest:/ s/^        default: '.*'/        default: '${RELEASE_VERSION}'/" .github/workflows/release.yml
 
       - name: Commit package version
         id: version_commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json .github/workflows/release.yml
+          git add package.json package-lock.json
 
           if git diff --cached --quiet; then
             echo "Package version is already ${{ steps.release.outputs.version }}."
