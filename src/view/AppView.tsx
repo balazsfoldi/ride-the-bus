@@ -518,7 +518,7 @@ function GameOverPanel({ players, canRestart, onRestart, onMenu }: { players: Pl
         </div>
         <div className="scoreboard-actions">
           {onMenu ? (
-            <button type="button" onClick={onMenu}>
+            <button className="secondary-action" type="button" onClick={onMenu}>
               <Home size={18} aria-hidden="true" />
               Menu
             </button>
