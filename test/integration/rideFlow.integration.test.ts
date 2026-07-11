@@ -49,6 +49,33 @@ function clearRide(state: ReturnType<typeof createInitialState>) {
 }
 
 describe('offline ride and pyramid flow', () => {
+  it('rejects the last player\'s incorrect final suit guess', () => {
+    const lastRide = [
+      card('last-2h', '2', 2, 'hearts'),
+      card('last-8c', '8', 8, 'clubs'),
+      card('last-5d', '5', 5, 'diamonds'),
+      card('last-kc', 'K', 13, 'clubs'),
+    ];
+    let state = createInitialState([...ride('first', 'hearts'), ...lastRide]);
+    state = addPlayer(state, 'Anna');
+    state = addPlayer(state, 'Bence');
+
+    state = clearRide(state);
+    state = confirmRideComplete(state);
+    state = startTurn(state);
+    state = makeGuess(state, 'red');
+    state = makeGuess(state, 'higher');
+    state = makeGuess(state, 'inside');
+    state = makeGuess(state, 'new');
+
+    expect(state.activePlayerIndex).toBe(1);
+    expect(state.phase).toBe('ride');
+    expect(state.result).toBe('wrong');
+    expect(state.revealedCount).toBe(4);
+    expect(state.players[1].drinks).toBe(1);
+    expect(state.players[1].completedRounds).toBe(0);
+  });
+
   it('plays from ride through pyramid scoreboard', () => {
     let state = createInitialState([...ride('a', 'hearts'), ...ride('b', 'diamonds'), ...pyramid()]);
     state = addPlayer(state, 'Anna');
