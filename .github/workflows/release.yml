@@ -1,57 +1,61 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, for example 0.1.1 or v0.1.1. Must match package.json.'
+        required: true
+        type: string
+      publish_latest:
+        description: 'Also publish/update the latest Docker tag.'
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
   packages: write
 
 jobs:
-  release:
-    name: Create or update release PR
-    runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-    steps:
-      - name: Create release PR or GitHub Release
-        id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          release-type: node
-          target-branch: main
-
   ci:
-    name: Run tests before publishing
-    needs: release
-    if: needs.release.outputs.release_created == 'true'
+    name: Run Tests before release
     uses: ./.github/workflows/ci.yml
 
   docker:
-    name: Publish Docker image
-    needs:
-      - release
-      - ci
-    if: needs.release.outputs.release_created == 'true'
+    name: Publish Docker image and GitHub release
+    needs: ci
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout release
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release.outputs.tag_name }}
 
       - name: Resolve release version
-        id: version
-        env:
-          RELEASE_TAG: ${{ needs.release.outputs.tag_name }}
-        run: echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+        id: release
+        run: |
+          RAW_VERSION="${{ inputs.version }}"
+          PUBLISH_LATEST="${{ inputs.publish_latest }}"
+          RELEASE_VERSION="${RAW_VERSION#v}"
+          RELEASE_TAG="v${RELEASE_VERSION}"
+
+          if ! echo "$RELEASE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
+            echo "Invalid release version: $RAW_VERSION"
+            exit 1
+          fi
+
+          {
+            echo "version=$RELEASE_VERSION"
+            echo "tag=$RELEASE_TAG"
+            echo "publish_latest=$PUBLISH_LATEST"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify package version matches release
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [ "${{ steps.release.outputs.version }}" != "$PACKAGE_VERSION" ]; then
+            echo "Release ${{ steps.release.outputs.tag }} does not match package.json version $PACKAGE_VERSION"
+            exit 1
+          fi
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -71,13 +75,23 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=${{ needs.release.outputs.tag_name }}
-            type=raw,value=latest
           labels: |
             org.opencontainers.image.title=Ride the Bus
             org.opencontainers.image.description=One-room Ride the Bus web game
-            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+
+      - name: Resolve Docker tags
+        id: docker_tags
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}"
+          {
+            echo "tags<<EOF"
+            echo "$IMAGE:${{ steps.release.outputs.tag }}"
+            if [ "${{ steps.release.outputs.publish_latest }}" = "true" ]; then
+              echo "$IMAGE:latest"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -85,5 +99,19 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.docker_tags.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ steps.release.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.release.outputs.tag }} already exists."
+            exit 0
+          fi
+
+          gh release create "${{ steps.release.outputs.tag }}" \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.release.outputs.tag }}" \
+            --generate-notes
