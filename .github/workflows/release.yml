@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version, for example 0.1.1 or v0.1.1. Must match package.json.'
+        description: 'Release version, for example 0.1.1 or v0.1.1.'
         required: true
         type: string
       publish_latest:
@@ -49,14 +49,24 @@ jobs:
             echo "publish_latest=$PUBLISH_LATEST"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Verify package version matches release
+      - name: Update package version
+        run: npm version "${{ steps.release.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Commit package version
+        id: version_commit
         run: |
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if [ "${{ steps.release.outputs.version }}" != "$PACKAGE_VERSION" ]; then
-            echo "Release ${{ steps.release.outputs.tag }} does not match package.json version $PACKAGE_VERSION"
-            exit 1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+
+          if git diff --cached --quiet; then
+            echo "Package version is already ${{ steps.release.outputs.version }}."
+          else
+            git commit -m "chore(release): bump version to ${{ steps.release.outputs.version }}"
+            git push origin "HEAD:$GITHUB_REF_NAME"
           fi
 
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -112,6 +122,6 @@ jobs:
           fi
 
           gh release create "${{ steps.release.outputs.tag }}" \
-            --target "$GITHUB_SHA" \
+            --target "${{ steps.version_commit.outputs.sha }}" \
             --title "${{ steps.release.outputs.tag }}" \
             --generate-notes
