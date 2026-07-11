@@ -76,6 +76,25 @@ describe('offline ride and pyramid flow', () => {
     expect(state.players[1].completedRounds).toBe(0);
   });
 
+  it('keeps exactly four cards when a ride completion is processed again', () => {
+    let state = createInitialState([...ride('first', 'hearts'), ...ride('second', 'diamonds')]);
+    state = addPlayer(state, 'Anna');
+    state = addPlayer(state, 'Bence');
+
+    state = clearRide(state);
+    state = confirmRideComplete(state);
+    state = clearRide(state);
+
+    expect(state.players[1].hand).toHaveLength(4);
+    expect(state.players[1].completedRounds).toBe(1);
+
+    state = { ...state, phase: 'ride', result: 'correct', revealedCount: 3 };
+    state = makeGuess(state, 'new');
+
+    expect(state.players[1].hand).toHaveLength(4);
+    expect(state.players[1].hand).toEqual(ride('second', 'diamonds'));
+    expect(state.players[1].completedRounds).toBe(1);
+  });
   it('plays from ride through pyramid scoreboard', () => {
     let state = createInitialState([...ride('a', 'hearts'), ...ride('b', 'diamonds'), ...pyramid()]);
     state = addPlayer(state, 'Anna');
