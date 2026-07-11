@@ -20,27 +20,13 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - name: Ensure repository auto-merge is enabled
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        run: gh api --method PATCH "repos/$GITHUB_REPOSITORY" -F allow_auto_merge=true
-
       - name: Create release PR or GitHub Release
         id: release
         uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           release-type: node
           target-branch: main
-
-      - name: Enable auto-merge for release PR
-        if: steps.release.outputs.prs_created == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          RELEASE_PR: ${{ steps.release.outputs.pr }}
-        run: |
-          PR_NUMBER="$(echo "$RELEASE_PR" | jq -r '.number')"
-          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --squash
 
   ci:
     name: Run tests before publishing
